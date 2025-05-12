@@ -1,4 +1,4 @@
-include("../julia/FocalMechv2/src/FocalMechv2.jl")
+include("../../julia/FocalMechv2/src/FocalMechv2.jl")
 
 nr = 2
 ne = 3
