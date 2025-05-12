@@ -32,6 +32,9 @@ file(GLOB myincludes include/*.h)
 
 # test
 
-add_executable(database_io test/database_io.c src/io.c src/types.c include/io.h include/types.h "src/misfit_norm2.cu" "include/misfit_xcorr.h")
-target_include_directories(database_io PRIVATE include)
+set(CMAKE_CUDA_FLAGS "-rdc=true -arch=sm_90 --expt-relaxed-constexpr")
+add_executable(database_io "test/database_io.cu" "src/GlobalSetting.cu" "src/GreenFunction.cu" "src/io.cu" "src/Phase.cu" "src/Record.cu" "include/GlobalSetting.h" "include/GreenFunction.h" "include/io.h" "include/Phase.h" "include/Record.h" "include/types.h")
+set_target_properties(database_io PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+target_include_directories(database_io PRIVATE include ${CUDA_LIBRARIES})
+target_link_libraries(database_io PRIVATE CUDA::cudart)
 install(TARGETS database_io)

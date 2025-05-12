@@ -19,7 +19,6 @@ void normalized_xcorr_cpu(Float64 *result, Int64 L, Int64 Ix, Float64* x, Int64 
     *result /= sqrt(norm_x * norm_y);
 }
 
-#ifdef GPU
 __device__
 void xcorr_gpu(Float64* result, Int64 L, Int64 Ix, Float64* x, Int64 Iy, Float64* y){
     Int64 i;
@@ -37,5 +36,3 @@ void normalized_xcorr_gpu(Float64 *result, Int64 L, Int64 Ix, Float64* x, Int64 
     xcorr_gpu(result, L, Ix, x, Iy, y);
     *result /= sqrt(norm_x * norm_y);
 }
-
-#endif
