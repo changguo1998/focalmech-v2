@@ -1,6 +1,9 @@
-Manifest.toml
 out/
 .vs/
 .vscode/
-*.exe
-*.bin
+.idea/
+cmake-build-debug/
+
+Manifest.toml
+c/run_test/*.exe
+c/run_test/*.bin

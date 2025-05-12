@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 project(FMv2 LANGUAGES C CUDA)
+# check_language(CUDA)
+enable_language(CUDA)
+include(CheckLanguage)
+find_package(CUDAToolkit)
 
 include_directories(include)
 file(GLOB myincludes include/*.h)
@@ -16,9 +20,6 @@ file(GLOB myincludes include/*.h)
 # install(TARGETS fm_omp)
 
 # message("USE GPU")
-# enable_language(CUDA)
-# include(CheckLanguage)
-# find_package(CUDAToolkit)
 # # check_language(CUDA)
 # # !!! change arch of GPU before compiling. The supported arch can be get using `nvcc -h`
 # set(CMAKE_CUDA_FLAGS "-rdc=true -arch=sm_90 --expt-relaxed-constexpr")
@@ -31,6 +32,6 @@ file(GLOB myincludes include/*.h)
 
 # test
 
-add_executable(database_io test/database_io.c src/io.c src/types.c include/io.h include/types.h)
+add_executable(database_io test/database_io.c src/io.c src/types.c include/io.h include/types.h "src/misfit_norm2.cu" "include/misfit_xcorr.h")
 target_include_directories(database_io PRIVATE include)
 install(TARGETS database_io)
