@@ -11,6 +11,9 @@ struct GlobalSetting
     data_suffix::Float64
 
     # SDR
+    nstrike::Int64
+    ndip::Int64
+    nrake::Int64
     dstrike::Float64
     ddip::Float64
     drake::Float64
@@ -24,6 +27,9 @@ struct GlobalSetting_C
     n_event_location::Int64
     n_frequency_pair::Int64
     n_phase::Int64
+    nstrike::Int64
+    ndip::Int64
+    nrake::Int64
     dstrike::Float64
     ddip::Float64
     drake::Float64
@@ -33,23 +39,27 @@ function GlobalSetting_C(s::GlobalSetting)
     return GlobalSetting_C(
         s.tag, s.n_record, s.n_event_location,
         length(s.low_frequency) * length(s.high_frequency),
-        s.n_phase,
+        s.n_phase, s.nstrike, s.ndip, s.nrake,
         s.dstrike, s.ddip, s.drake
     )
 end
 
-function read_global_setting_from_database(io::IO)
+function GlobalSetting_C(io::IO)
     cbuf = zeros(UInt8, MAX_INVERSION_TAG_LENGTH)
     read!(io, cbuf)
     n_record = read(io, Int64)
     n_event_location = read(io, Int64)
     n_frequency_pair = read(io, Int64)
     n_phase = read(io, Int64)
+    nstrike = read(io, Int64)
+    ndip = read(io, Int64)
+    nrake = read(io, Int64)
     dstrike = read(io, Float64)
     ddip = read(io, Float64)
     drake = read(io, Float64)
     sbuf = String(filter(>(0), cbuf))
-    return GlobalSetting_C(sbuf, n_record, n_event_location, n_frequency_pair, n_phase, dstrike, ddip, drake)
+    return GlobalSetting_C(sbuf, n_record, n_event_location, n_frequency_pair, n_phase,
+        nstrike, ndip, nrake, dstrike, ddip, drake)
 end
 
 function write_to_database(io::IO, s::GlobalSetting_C)
@@ -60,6 +70,9 @@ function write_to_database(io::IO, s::GlobalSetting_C)
     write(io, s.n_event_location)
     write(io, s.n_frequency_pair)
     write(io, s.n_phase)
+    write(io, s.nstrike)
+    write(io, s.ndip)
+    write(io, s.nrake)
     write(io, s.dstrike)
     write(io, s.ddip)
     write(io, s.drake)
@@ -77,7 +90,7 @@ function Record_C(
     return Records(Int64(id), Float64.(data))
 end
 
-function read_record_from_database(io::IO, gs::GlobalSetting_C)
+function Record_C(io::IO, gs::GlobalSetting_C)
     id = read(io, Int64)
     npts = read(io, Int64)
     data = zeros(Float64, npts, gs.n_frequency_pair)
@@ -107,7 +120,7 @@ function pp_records_in_different_frequency(
     return data_filtered
 end
 
-struct GreenFun_C
+struct GreenFunction_C
     record_id::Int64
     event_location_id::Int64
     g11::Matrix{Float64}
@@ -118,7 +131,7 @@ struct GreenFun_C
     g23::Matrix{Float64}
 end
 
-function read_green_fun_from_database(io::IO, rs::Vector{Record_C}, gs::GlobalSetting_C)
+function GreenFunction_C(io::IO, rs::Vector{Record_C}, gs::GlobalSetting_C)
     rid = read(io, Int64)
     eid = read(io, Int64)
     idx = findfirst(r -> r.id == rid, rs)
@@ -135,10 +148,10 @@ function read_green_fun_from_database(io::IO, rs::Vector{Record_C}, gs::GlobalSe
     read!(io, g13)
     g23 = zeros(Float64, npts, gs.n_frequency_pair)
     read!(io, g23)
-    return GreenFun_C(rid, eid, g11, g22, g33, g12, g13, g23)
+    return GreenFunction_C(rid, eid, g11, g22, g33, g12, g13, g23)
 end
 
-function write_to_database(io::IO, gf::GreenFun_C)
+function write_to_database(io::IO, gf::GreenFunction_C)
     write(io, gf.record_id)
     write(io, gf.event_location_id)
     write(io, gf.g11)
@@ -160,7 +173,7 @@ struct Phase_C
     flag::Bool
 end
 
-function read_phase_from_database(io::IO)
+function Phase_C(io::IO)
     _rid = read(io, Int64)
     _eid = read(io, Int64)
     _type = read(io, Int64)
@@ -179,5 +192,38 @@ function write_to_database(io::IO, ps::Phase_C)
     write(io, ps.Estart)
     write(io, ps.length)
     write(io, UInt8(ps.flag))
+    return nothing
+end
+
+struct Result_C
+    n_phase::Int64
+    n_fm::Int64
+    waveform::Matrix{Float64}
+    shift::Matrix{Int64}
+    polarity::Matrix{Float64}
+    ps_ratio::Matrix{Float32}
+end
+
+function Result_C(io::IO)
+    np = read(io, Int64)
+    nf = read(io, Int64)
+    waveform = zeros(Float64, np, nf)
+    read!(io, waveform)
+    shift = zeros(Int64, np, nf)
+    read!(io, shift)
+    polarity = zeros(Float64, np, nf)
+    read!(io, polarity)
+    ps_ratio = zeros(Float64, np, nf)
+    read!(io, ps_ratio)
+    return Result_C(np, nf, waveform, shift, polarity, ps_ratio)
+end
+
+function write_to_database(io::IO, r::Result_C)
+    write(io, r.n_phase)
+    write(io, r.n_fm)
+    write(io, r.waveform)
+    write(io, r.shift)
+    write(io, polarity)
+    write(io, ps_ratio)
     return nothing
 end

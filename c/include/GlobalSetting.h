@@ -10,6 +10,7 @@ typedef struct _GlobalSetting_t
 {
     char tag[MAX_INVERSION_TAG_LENGTH];
     Int64 n_record, n_event_location, n_frequency_pair, n_phase;
+    Int64 nstrike, ndip, nrake;
     Float64 dstrike, ddip, drake;
 } GlobalSetting;
 

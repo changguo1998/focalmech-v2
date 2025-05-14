@@ -3,7 +3,9 @@
 #include <cuda.h>
 #include "GlobalSetting.h"
 
-#define DEBUG
+// #define DEBUG
+
+static inline Int64 _max_(Int64 a, Int64 b) { return (a > b) ? a : b; }
 
 void GlobalSetting_read(GlobalSetting *s, FILE *fp)
 {
@@ -30,6 +32,9 @@ void GlobalSetting_read(GlobalSetting *s, FILE *fp)
 #ifdef DEBUG
     printf("(GlobalSetting_read) n_phase: %lld\n", s->n_phase);
 #endif
+    fread(&s->nstrike, sizeof(Int64), 1, fp);
+    fread(&s->ndip, sizeof(Int64), 1, fp);
+    fread(&s->nrake, sizeof(Int64), 1, fp);
     fread(&s->dstrike, sizeof(Float64), 1, fp);
 #ifdef DEBUG
     printf("(GlobalSetting_read) dstrike: %lf\n", s->dstrike);
@@ -51,6 +56,9 @@ void GlobalSetting_write(GlobalSetting *s, FILE *fp)
     fwrite(&s->n_event_location, sizeof(Int64), 1, fp);
     fwrite(&s->n_frequency_pair, sizeof(Int64), 1, fp);
     fwrite(&s->n_phase, sizeof(Int64), 1, fp);
+    fwrite(&s->nstrike, sizeof(Int64), 1, fp);
+    fwrite(&s->ndip, sizeof(Int64), 1, fp);
+    fwrite(&s->nrake, sizeof(Int64), 1, fp);
     fwrite(&s->dstrike, sizeof(Float64), 1, fp);
     fwrite(&s->ddip, sizeof(Float64), 1, fp);
     fwrite(&s->drake, sizeof(Float64), 1, fp);
@@ -83,6 +91,7 @@ void GlobalSetting_xPU_free(GlobalSetting_xPU *gs)
 void GlobalSetting_xPU_read(GlobalSetting_xPU *gs, FILE *fp)
 {
     GlobalSetting_read(gs->cpu, fp);
+    gs->mgpu = 0;
     gs->mcpu = gs->mgpu + 1;
     GlobalSetting_xPU_sync(gs);
 }

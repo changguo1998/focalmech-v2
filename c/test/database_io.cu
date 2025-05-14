@@ -33,6 +33,7 @@ int main()
     printf("\tn event location: %lld\n", gs.cpu->n_event_location);
     printf("\tn frequency pairs: %lld\n", gs.cpu->n_frequency_pair);
     printf("\tn phases: %lld\n", gs.cpu->n_phase);
+    printf("\tnstrike: %lf \tndip: %lf, \tnrake: %lf\n\n", gs.cpu->nstrike, gs.cpu->ndip, gs.cpu->nrake);
     printf("\tdstrike: %lf \tddip: %lf, \tdrake: %lf\n\n", gs.cpu->dstrike, gs.cpu->ddip, gs.cpu->drake);
 
     printf("records:\n");

@@ -3,6 +3,10 @@
 #include <cuda.h>
 #include "Record.h"
 
+// #define DEBUG
+
+static inline Int64 _max_(Int64 a, Int64 b) { return (a > b) ? a : b; }
+
 void Record_init(Record *r)
 {
     r->id = 0;
@@ -30,7 +34,7 @@ void Record_read(Record *r, Int64 nfreq, FILE *fp)
 #endif
     fread(&r->npts, sizeof(Int64), 1, fp);
 #ifdef DEBUG
-    printf("(Record_read) npts: %lld\n", r->npts);
+    printf("(Record_read) npts: %lld, nfreq: %lld\n", r->npts, nfreq);
 #endif
     Int64 ndat = r->npts * nfreq;
     r->data = (Float64 *)malloc(sizeof(Float64) * ndat);
@@ -84,8 +88,15 @@ void Record_xPU_read(Record_xPU *rs, Int64 nfreq, FILE *fp)
 {
     Int64 i;
     for (i = 0; i < rs->n_records; i++)
+    {
+        Record_init(&((rs->cpu)[i]));
         Record_read(&((rs->cpu)[i]), nfreq, fp);
-    rs->mcpu = rs->mgpu + 1;
+    }
+    rs->mgpu = 0;
+    rs->mcpu = 1;
+#ifdef DEBUG
+    printf("(Record_xPU_rea) Sync...\n");
+#endif
     Record_xPU_sync(rs, nfreq);
 }
 

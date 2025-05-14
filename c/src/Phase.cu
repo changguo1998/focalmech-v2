@@ -3,15 +3,43 @@
 #include <cuda.h>
 #include "Phase.h"
 
+// #define DEBUG
+
+static inline Int64 _max_(Int64 a, Int64 b) { return (a > b) ? a : b; }
+
 void Phase_read(Phase *p, FILE *fp)
 {
+#ifdef DEBUG
+    printf("(Phase_read) start\n");
+#endif
     fread(&p->rid, sizeof(Int64), 1, fp);
+#ifdef DEBUG
+    printf("(Phase_read) record id: %lld\n", p->rid);
+#endif
     fread(&p->eid, sizeof(Int64), 1, fp);
+#ifdef DEBUG
+    printf("(Phase_read) event id: %lld\n", p->eid);
+#endif
     fread(&p->type, sizeof(Int64), 1, fp);
+#ifdef DEBUG
+    printf("(Phase_read) type: %lld\n", p->type);
+#endif
     fread(&p->Rstart, sizeof(Int64), 1, fp);
+#ifdef DEBUG
+    printf("(Phase_read) Rstart: %lld\n", p->Rstart);
+#endif
     fread(&p->Estart, sizeof(Int64), 1, fp);
+#ifdef DEBUG
+    printf("(Phase_read) Estart: %lld\n", p->Estart);
+#endif
     fread(&p->length, sizeof(Int64), 1, fp);
+#ifdef DEBUG
+    printf("(Phase_read) length: %lld\n", p->length);
+#endif
     fread(&p->flag, sizeof(UInt8), 1, fp);
+#ifdef DEBUG
+    printf("(Phase_read) flag: %d\n", p->flag);
+#endif
 }
 
 void Phase_write(Phase *p, FILE *fp)

@@ -7,3 +7,4 @@ cmake-build-debug/
 Manifest.toml
 c/run_test/*.exe
 c/run_test/*.bin
+c/run_test/*.txt

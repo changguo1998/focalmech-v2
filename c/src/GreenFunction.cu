@@ -3,6 +3,10 @@
 #include <cuda.h>
 #include "GreenFunction.h"
 
+#define DEBUG
+
+static inline Int64 _max_(Int64 a, Int64 b) { return (a > b) ? a : b; }
+
 void GreenFunction_init(GreenFunction *gf)
 {
     gf->rid = 0;
@@ -41,16 +45,32 @@ void GreenFunction_free(GreenFunction *gf)
 
 void GreenFunction_read(GreenFunction *gf, Record *rs, GlobalSetting *gs, FILE *fp)
 {
+#ifdef DEBUG
+    printf("(GreenFunction_read) start\n");
+#endif
     fread(&gf->rid, sizeof(Int64), 1, fp);
+#ifdef DEBUG
+    printf("(GreenFunction_read) rid: %lld\n", gf->rid);
+#endif
     fread(&gf->eid, sizeof(Int64), 1, fp);
+#ifdef DEBUG
+    printf("(GreenFunction_read) eid: %lld\n", gf->eid);
+#endif
     Int64 i, npts;
+    UInt8 flag = 1;
     for (i = 0; i < gs->n_record; i++)
     {
         if (rs[i].id == gf->rid)
         {
+            flag = 0;
             npts = rs[i].npts;
             break;
         }
+    }
+    if (flag)
+    {
+        printf("(GreenFunction_read) record id %lld not found\n", gf->rid);
+        exit(-1);
     }
     Int64 ndat = npts * gs->n_frequency_pair;
     GF_READ_MAT(gf->g11);
@@ -85,13 +105,14 @@ void GreenFunction_write(GreenFunction *gf, Record *rs, GlobalSetting *gs, FILE 
     fwrite(gf->g23, sizeof(Float64), ndat, fp);
 }
 
-#define _GF_COPY_MAT(var)                                   \
-    cudaMalloc(&gbuf.##var, npts *nfreq * sizeof(Float64)); \
+#define _GF_COPY_MAT(var) \
     cudaMemcpy(gbuf.##var, gf_cpu->##var, npts *nfreq * sizeof(Float64), cudaMemcpyHostToDevice)
 
 void GreenFunction_copyto_gpu(GreenFunction *gf_cpu, GreenFunction *gf_gpu, Int64 npts, Int64 nfreq)
 {
     GreenFunction gbuf;
+    cudaMemcpy(&gbuf, gf_gpu, sizeof(GreenFunction), cudaMemcpyDeviceToHost);
+    gbuf.rid = gf_cpu->rid;
     gbuf.eid = gf_cpu->eid;
 
     _GF_COPY_MAT(g11);
@@ -100,10 +121,28 @@ void GreenFunction_copyto_gpu(GreenFunction *gf_cpu, GreenFunction *gf_gpu, Int6
     _GF_COPY_MAT(g12);
     _GF_COPY_MAT(g13);
     _GF_COPY_MAT(g23);
-    cudaMemcpy(gf_gpu, &gbuf, sizeof(GreenFunction), cudaMemcpyHostToDevice);
+    cudaDeviceSynchronize();
 }
 
 #undef _GF_COPY_MAT
+
+void GreenFunction_copy_gpu_to_cpu(GreenFunction *gf_cpu, GreenFunction *gf_gpu, Int64 npts, Int64 nfreq)
+{
+    Int64 n;
+    GreenFunction gbuf;
+    cudaMemcpy(&gbuf, gf_gpu, sizeof(GreenFunction), cudaMemcpyDeviceToHost);
+
+    n = npts * nfreq;
+    gf_cpu->rid = gbuf.rid;
+    gf_cpu->eid = gbuf.eid;
+    cudaMemcpy(gf_cpu->g11, gbuf.g11, n * sizeof(Float64), cudaMemcpyDeviceToHost);
+    cudaMemcpy(gf_cpu->g22, gbuf.g22, n * sizeof(Float64), cudaMemcpyDeviceToHost);
+    cudaMemcpy(gf_cpu->g33, gbuf.g33, n * sizeof(Float64), cudaMemcpyDeviceToHost);
+    cudaMemcpy(gf_cpu->g12, gbuf.g12, n * sizeof(Float64), cudaMemcpyDeviceToHost);
+    cudaMemcpy(gf_cpu->g13, gbuf.g13, n * sizeof(Float64), cudaMemcpyDeviceToHost);
+    cudaMemcpy(gf_cpu->g23, gbuf.g23, n * sizeof(Float64), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+}
 
 #define _GF_FREE_CUDA_MAT(var) cudaFree(gbuf.##var)
 
@@ -146,7 +185,18 @@ void GreenFunction_xPU_read(GreenFunction_xPU *gflist, Record_xPU *rlist, Global
 {
     Int64 i;
     for (i = 0; i < gflist->n; i++)
+    {
+#ifdef DEBUG
+        printf("(GreenFunction_xPU_read) Reading function %lld\n", i);
+#endif
         GreenFunction_read(&(gflist->cpu[i]), rlist->cpu, gs->cpu, fp);
+    }
+    gflist->mcpu = 1;
+    gflist->mgpu = 0;
+#ifdef DEBUG
+    printf("(GreenFunction_xPU_read) Sync\n");
+#endif
+    GreenFunction_xPU_sync(gflist, rlist, gs);
 }
 
 void GreenFunction_xPU_write(GreenFunction_xPU *gflist, Record_xPU *rlist, GlobalSetting_xPU *gs, FILE *fp)
@@ -154,4 +204,57 @@ void GreenFunction_xPU_write(GreenFunction_xPU *gflist, Record_xPU *rlist, Globa
     Int64 i;
     for (i = 0; i < gflist->n; ++i)
         GreenFunction_write(&gflist->cpu[i], rlist->cpu, gs->cpu, fp);
+}
+
+void GreenFunction_xPU_sync(GreenFunction_xPU *gflist, Record_xPU *rlist, GlobalSetting_xPU *gs)
+{
+    Int64 i, ir, npts, nfreq;
+#ifdef DEBUG
+    printf("(GreenFunction_xPU_sync) start\n");
+#endif
+    nfreq = gs->cpu->n_frequency_pair;
+#ifdef DEBUG
+    printf("(GreenFunction_xPU_sync) nfreq: %lld\n", nfreq);
+#endif
+    if (gflist->mcpu > gflist->mgpu)
+    {
+#ifdef DEBUG
+        printf("(GreenFunction_xPU_sync) CPU -> GPU\n");
+#endif
+        for (i = 0; i < gflist->n; i++)
+        {
+#ifdef DEBUG
+            printf("(GreenFunction_xPU_sync) gf[%lld]\n", i);
+#endif
+            for (ir = 0; ir < rlist->n_records; ir++)
+                if ((gflist->cpu)[i].rid == rlist->cpu[ir].id)
+                    break;
+            npts = rlist->cpu[ir].npts;
+#ifdef DEBUG
+            printf("(GreenFunction_xPU_sync) found record id: %lld, npts: %lld\n", ir, npts);
+#endif
+            GreenFunction_copyto_gpu(&((gflist->cpu)[i]), &((gflist->gpu)[i]), npts, nfreq);
+        }
+    }
+    if (gflist->mcpu < gflist->mgpu)
+    {
+#ifdef DEBUG
+        printf("(GreenFunction_xPU_sync) GPU -> CPU\n");
+#endif
+        for (i = 0; i < gflist->n; i++)
+        {
+            for (ir = 0; ir < rlist->n_records; ir++)
+                if (gflist->cpu[i].rid == rlist->cpu[ir].id)
+                    break;
+            npts = rlist->cpu[ir].npts;
+            GreenFunction_copy_gpu_to_cpu(&gflist->cpu[i], &gflist->gpu[i], npts, nfreq);
+        }
+    }
+    gflist->mcpu = 0;
+    gflist->mgpu = 0;
+
+#ifdef DEBUG
+    printf("(GreenFunction_xPU_sync) Wait for device synchronization\n");
+#endif
+    cudaDeviceSynchronize();
 }

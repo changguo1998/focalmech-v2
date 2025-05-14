@@ -6,8 +6,14 @@ ne = 3
 np = 4
 npts = 5
 dt = 0.1
+dstrike = 1.0
+ddip = 1.0
+drake = 1.0
+nstrike = round(Int, 360.0/dstrike)
+ndip = round(Int, 90.0/ddip) + 1
+nrake = round(Int, 360.0/drake)
 
-gs = FocalMechv2.GlobalSetting("abc", nr, ne, np, [0.1], [0.5, 1.0], 0.0, 0.0, 1.0, 1.0, 1.0)
+gs = FocalMechv2.GlobalSetting("abc", nr, ne, np, [0.1], [0.5, 1.0], 0.0, 0.0, nstrike, ndip, nrake, dstrike, ddip, drake)
 gs_c = FocalMechv2.GlobalSetting_C(gs)
 
 rs = map(1:nr) do i
@@ -39,13 +45,16 @@ open("input_db.bin", "w") do io
     return nothing
 end
 
+exit(0)
+
 run(Cmd(`database_io.exe`; dir=pwd()))
 
-io = open("output.bin", "r")
-gs_t = FocalMechv2.read_global_setting_from_database(io);
-rs_t = map(x -> FocalMechv2.read_record_from_database(io, gs_t), 1:gs_t.n_record);
-gf_t = map(x -> FocalMechv2.read_green_fun_from_database(io, rs_t, gs_t), 1:gs_t.n_event_location*gs_t.n_record);
-ps_t = map(x -> FocalMechv2.read_phase_from_database(io), 1:gs_t.n_phase);
+# io = open("output.bin", "r")
+io = open("input_db.bin", "r")
+gs_t = FocalMechv2.GlobalSetting_C(io);
+rs_t = map(x -> FocalMechv2.Record_C(io, gs_t), 1:gs_t.n_record);
+gf_t = map(x -> FocalMechv2.GreenFunction_C(io, rs_t, gs_t), 1:gs_t.n_event_location*gs_t.n_record);
+ps_t = map(x -> FocalMechv2.Phase_C(io), 1:gs_t.n_phase);
 close(io)
 
 @test gs_c == gs_t

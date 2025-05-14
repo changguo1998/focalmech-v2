@@ -11,7 +11,7 @@
 
 void load_database(GlobalSetting_xPU *gs, Record_xPU *rlist, GreenFunction_xPU *gflist, Phase_xPU *plist, FILE *fp)
 {
-    Int64 i;
+    // Int64 i;
 #ifdef DEBUG
     printf("(load_database) allocate GlobalSetting\n");
 #endif
@@ -51,7 +51,7 @@ void load_database(GlobalSetting_xPU *gs, Record_xPU *rlist, GreenFunction_xPU *
 
 void save_database(GlobalSetting_xPU *gs, Record_xPU *rs, GreenFunction_xPU *gfs, Phase_xPU *plist, FILE *fp)
 {
-    Int64 i;
+    // Int64 i;
     GlobalSetting_xPU_write(gs, fp);
     Record_xPU_write(rs, gs->cpu->n_frequency_pair, fp);
     GreenFunction_xPU_write(gfs, rs, gs, fp);
