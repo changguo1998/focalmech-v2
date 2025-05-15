@@ -11,7 +11,19 @@ close(io)
 res_gpu = open(io->FocalMechv2.Result_C(io), "result_gpu.bin", "r");
 res_omp = open(io->FocalMechv2.Result_C(io), "result_omp.bin", "r");
 
+foreach(fieldnames(FocalMechv2.Result_C)) do f
+    println(f, " ", getfield(res_gpu, f) == getfield(res_omp, f));
+end;
 
 fig = Figure()
-ax = Axis(fig[1,1])
-heatmap!(res.waveform[1,:,:])
+ax1 = Axis(fig[1,1])
+lines!(rs[1].data[:])
+ax2 = Axis(fig[2,1])
+lines!(gf[1].g11[:].+5.0)
+lines!(gf[1].g22[:].+4.0)
+lines!(gf[1].g33[:].+3.0)
+lines!(gf[1].g12[:].+2.0)
+lines!(gf[1].g13[:].+1.0)
+lines!(gf[1].g23[:])
+ax3 = Axis(fig[1:2,2])
+heatmap!(res_gpu.waveform[1,:,:])

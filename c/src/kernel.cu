@@ -1,6 +1,7 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <cuda.h>
+#include <omp.h>
 
 #include "types.h"
 #include "GlobalSetting.h"
@@ -10,6 +11,8 @@
 #include "Result.h"
 #include "misfits.h"
 #include "kernel.h"
+
+// #define DEBUG
 
 #define sind(x) sin((x) * M_PI / 180.0)
 #define cosd(x) cos((x) * M_PI / 180.0)
@@ -46,8 +49,6 @@ void dc2ts_omp(Float64 *mt11, Float64 *mt22, Float64 *mt33, Float64 *mt12, Float
     return;
 }
 
-// #define calsyn(v, mt)
-
 #define lin2cart(v, n) \
     do                 \
     {                  \
@@ -61,11 +62,11 @@ __global__ void kernel_gpu(GlobalSetting *gs, Record *rs, GreenFunction *gfs, Ph
     Int64 idx, ifreq, iphase, istrike, idip, irake, res;
 
     idx = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (idx >= (gs->n_frequency_pair * gs->n_phase * gs->nstrike * gs->ndip * gs->nrake)){
+    if (idx >= (gs->n_frequency_pair * gs->n_phase * gs->nstrike * gs->ndip * gs->nrake))
+    {
         // printf("(kernel_gpu) out of bounds %lld, nfreq: %lld, nphase: %lld\n", idx, gs->n_frequency_pair, gs->n_phase);
         return;
     }
-
 
     res = idx;
     lin2cart(ifreq, gs->n_frequency_pair);
@@ -74,19 +75,15 @@ __global__ void kernel_gpu(GlobalSetting *gs, Record *rs, GreenFunction *gfs, Ph
     lin2cart(idip, gs->ndip);
     lin2cart(irake, gs->nrake);
 
-    // if (res)
-    // {
-    //     mis_waveform[idx] = 12345.0;
-    //     mis_shift[idx] = 12345;
-    //     mis_pol[idx] = 12345.0;
-    //     mis_psr[idx] = 12345.0;
-    //     return;
-    // }
-    mis_waveform[idx] = 20.0;
-    mis_shift[idx] = idx;
-    mis_pol[idx] = 20.0;
-    mis_psr[idx] = 20.0;
-    return;
+#ifdef DEBUG
+    // printf("(kernel_gpu) idx: %lld, ifreq: %lld, iphase: %lld, istrike: %lld, idip: %lld, irake: %lld, res: %lld\n",
+    //        idx, ifreq, iphase, istrike, idip, irake, res);
+#endif
+
+    mis_waveform[idx] = 12345.0;
+    mis_shift[idx] = 12345;
+    mis_pol[idx] = 12345.0;
+    mis_psr[idx] = 12345.0;
 
     Float64 strike, dip, rake, mt11, mt22, mt33, mt12, mt13, mt23;
 
@@ -96,17 +93,46 @@ __global__ void kernel_gpu(GlobalSetting *gs, Record *rs, GreenFunction *gfs, Ph
 
     dc2ts(&mt11, &mt22, &mt33, &mt12, &mt13, &mt23, strike, dip, rake);
 
-    Int64 igf, irec;
+#ifdef DEBUG
+    // printf("(kernel_gpu) strike: %.1lf, dip: %.1lf, rake: %.1lf, mt: [%.1lf,%.1lf,%.1lf,%.1lf,%.1lf,%.1lf,]\n",
+    //        strike, dip, rake, mt11, mt22, mt33, mt12, mt13, mt23);
+#endif
+
+    Int64 igf, irec, ngf;
     for (irec = 0; irec < gs->n_record; irec++)
+    {
+#ifdef DEBUG
+        printf("(kernel_gpu) phase.rid: %lld, r.id: %lld\n", ps[iphase].rid, rs[irec].id);
+#endif
         if (rs[irec].id == ps[iphase].rid)
             break;
-    for (igf = 0; igf < gs->n_record * gs->n_event_location; igf++)
+    }
+
+    if (irec >= gs->n_record)
+        return;
+
+    ngf = gs->n_record * gs->n_event_location;
+    for (igf = 0; igf < ngf; igf++)
+    {
+#ifdef DEBUG
+        printf("(kernel_gpu) phase.rid: %lld, phase.eid: %lld, gf.rid: %lld, gf.eid: %lld\n",
+               ps[iphase].rid, ps[iphase].eid, gfs[igf].rid, gfs[igf].eid);
+#endif
         if ((gfs[igf].rid == ps[iphase].rid) && (gfs[igf].eid == ps[iphase].eid))
             break;
+    }
+
+    if (igf >= ngf)
+        return;
+
+#ifdef DEBUG
+    printf("(kernel_gpu) irec: %lld, igf: %lld\n", irec, igf);
+#endif
+
     Float64 nxc;
     Int64 datshift;
     datshift = ifreq * rs[irec].npts;
-    maximum_xcorr_mt_gpu(&nxc, &mis_shift[idx], ps[iphase].length, 10,
+    maximum_xcorr_mt_gpu(&nxc, &mis_shift[idx], ps[iphase].length, 20,
                          rs[irec].npts, ps[iphase].Rstart, &(rs[irec].data[datshift]),
                          rs[irec].npts, ps[iphase].Estart,
                          &(gfs[igf].g11[datshift]), &(gfs[igf].g22[datshift]), &(gfs[igf].g33[datshift]),
@@ -133,19 +159,15 @@ void kernel_omp(Int64 idx, GlobalSetting *gs, Record *rs, GreenFunction *gfs, Ph
     lin2cart(idip, gs->ndip);
     lin2cart(irake, gs->nrake);
 
-    // if (res)
-    // {
-    //     mis_waveform[idx] = 12345.0;
-    //     mis_shift[idx] = 12345;
-    //     mis_pol[idx] = 12345.0;
-    //     mis_psr[idx] = 12345.0;
-    //     return;
-    // }
-    mis_waveform[idx] = 20.0;
-    mis_shift[idx] = idx;
-    mis_pol[idx] = 20.0;
-    mis_psr[idx] = 20.0;
-    return;
+#ifdef DEBUG
+    // printf("(kernel_omp) idx: %lld, ifreq: %lld, iphase: %lld, istrike: %lld, idip: %lld, irake: %lld, res: %lld\n",
+    //        idx, ifreq, iphase, istrike, idip, irake, res);
+#endif
+
+    mis_waveform[idx] = 12345.0;
+    mis_shift[idx] = 12345;
+    mis_pol[idx] = 12345.0;
+    mis_psr[idx] = 12345.0;
 
     Float64 strike, dip, rake, mt11, mt22, mt33, mt12, mt13, mt23;
 
@@ -155,13 +177,42 @@ void kernel_omp(Int64 idx, GlobalSetting *gs, Record *rs, GreenFunction *gfs, Ph
 
     dc2ts_omp(&mt11, &mt22, &mt33, &mt12, &mt13, &mt23, strike, dip, rake);
 
-    Int64 igf, irec;
+#ifdef DEBUG
+    // printf("(kernel_omp) strike: %.1lf, dip: %.1lf, rake: %.1lf, mt: [%.1lf,%.1lf,%.1lf,%.1lf,%.1lf,%.1lf,]\n",
+    //        strike, dip, rake, mt11, mt22, mt33, mt12, mt13, mt23);
+#endif
+
+    Int64 igf, irec, ngf;
     for (irec = 0; irec < gs->n_record; irec++)
+    {
+#ifdef DEBUG
+        printf("(kernel_omp) phase.rid: %lld, r.id: %lld\n", ps[iphase].rid, rs[irec].id);
+#endif
         if (rs[irec].id == ps[iphase].rid)
             break;
-    for (igf = 0; igf < gs->n_record * gs->n_event_location; igf++)
+    }
+
+    if (irec >= gs->n_record)
+        return;
+
+    ngf = gs->n_record * gs->n_event_location;
+    for (igf = 0; igf < ngf; igf++)
+    {
+#ifdef DEBUG
+        printf("(kernel_omp) phase.rid: %lld, phase.eid: %lld, gf.rid: %lld, gf.eid: %lld\n",
+               ps[iphase].rid, ps[iphase].eid, gfs[igf].rid, gfs[igf].eid);
+#endif
         if ((gfs[igf].rid == ps[iphase].rid) && (gfs[igf].eid == ps[iphase].eid))
             break;
+    }
+
+    if (igf >= ngf)
+        return;
+
+#ifdef DEBUG
+    printf("(kernel_omp) irec: %lld, igf: %lld\n", irec, igf);
+#endif
+
     Float64 nxc;
     Int64 datshift;
     datshift = ifreq * rs[irec].npts;
@@ -198,11 +249,14 @@ void call_kernel_omp(GlobalSetting_xPU *gs, Record_xPU *rlist, GreenFunction_xPU
     Int64 n_threads, idx;
     n_threads = gs->cpu->n_frequency_pair * gs->cpu->n_phase * gs->cpu->nstrike * gs->cpu->ndip * gs->cpu->nrake;
     Result_xPU_sync(result);
+    omp_set_num_threads(12);
 
-#pragma omp parallel for num_threads(12) default(none) shared(gs, rlist, gflist, plist, result) private(idx)
-    for (idx = 0; idx < n_threads; idx++)
-        kernel_omp(idx, gs->cpu, rlist->cpu, gflist->cpu, plist->cpu,
-                   result->waveform, result->shift, result->polarity, result->ps_ratio);
+#pragma omp parallel for num_threads(12) default(none) shared(n_threads, gs, rlist, gflist, plist, result) private(idx)
+    {
+        for (idx = 0; idx < n_threads; idx++)
+            kernel_omp(idx, gs->cpu, rlist->cpu, gflist->cpu, plist->cpu,
+                       result->waveform, result->shift, result->polarity, result->ps_ratio);
+    }
 
     result->mcpu = _max_(result->mcpu, result->mgpu) + 1;
     Result_xPU_sync(result);

@@ -91,7 +91,8 @@ void Phase_xPU_read(Phase_xPU *ps, FILE *fp)
     Int64 i;
     for (i = 0; i < ps->nphases; i++)
         Phase_read(&(ps->cpu[i]), fp);
-    ps->mcpu = ps->mgpu + 1;
+    ps->mcpu = 1;
+    ps->mgpu = 0;
     Phase_xPU_sync(ps);
 }
 

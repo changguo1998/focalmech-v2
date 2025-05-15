@@ -13,7 +13,7 @@
 #include "io.h"
 
 // #define GPU
-#define DEBUG
+// #define DEBUG
 
 #define WRITE_LOG(...)                \
     do                                \
@@ -27,7 +27,7 @@ static inline Int64 _max_(Int64 a, Int64 b) { return (a > b) ? a : b; }
 int main(int argc, char *argv[])
 {
     FILE *fp_input, *fp_log, *fp_output;
-    Int64 n_freq, n_phase, n_fm;
+    Int64 n_freq, n_phase, n_fm, i;
 
     GlobalSetting_xPU global_setting;
     Record_xPU record;
@@ -53,7 +53,36 @@ int main(int argc, char *argv[])
     load_database(&global_setting, &record, &greenfunction_database, &phase_list, fp_input);
     fclose(fp_input);
 
-    WRITE_LOG("Allocate result buffers\n");
+    WRITE_LOG("\nGlobalSetting:\n");
+    WRITE_LOG("    n_freq:   %lld\n", global_setting.cpu->n_frequency_pair);
+    WRITE_LOG("    n_record: %lld\n", global_setting.cpu->n_record);
+    WRITE_LOG("    n_event_location: %lld\n", global_setting.cpu->n_event_location);
+    WRITE_LOG("    n_phase: %lld\n", global_setting.cpu->n_phase);
+    WRITE_LOG("    nstrike: %lld, ndip: %lld ,nrake :% lld\n",
+              global_setting.cpu->nstrike,
+              global_setting.cpu->ndip,
+              global_setting.cpu->nrake);
+    WRITE_LOG("    dstrike: %lf, ddip: %lf, drake: %lf\n",
+              global_setting.cpu->dstrike,
+              global_setting.cpu->ddip,
+              global_setting.cpu->drake);
+
+    WRITE_LOG("\nRecord %lld:\n", record.n_records);
+    for (i = 0; i < record.n_records; i++)
+        WRITE_LOG("    id: %lld, npts: %lld\n", record.cpu[i].id, record.cpu[i].npts);
+
+    WRITE_LOG("\nGreen Function %lld\n", greenfunction_database.n);
+    for (i = 0; i < greenfunction_database.n; i++)
+        WRITE_LOG("    rid: %lld, eid: %lld\n", greenfunction_database.cpu[i].rid, greenfunction_database.cpu[i].eid);
+
+    WRITE_LOG("\nPhase %lld:\n", phase_list.nphases);
+    for (i = 0; i < phase_list.nphases; i++)
+        WRITE_LOG("    rid: %lld, eid: %lld, type: %lld, R: %lld, E: %lld, L: %lld, %s\n",
+                  phase_list.cpu[i].rid, phase_list.cpu[i].eid, phase_list.cpu[i].type,
+                  phase_list.cpu[i].Rstart, phase_list.cpu[i].Estart, phase_list.cpu[i].length,
+                  (phase_list.cpu[i].flag ? "true" : "false"));
+
+    WRITE_LOG("\nAllocate result buffers\n");
     n_freq = global_setting.cpu->n_frequency_pair;
     n_phase = global_setting.cpu->n_phase;
     n_fm = global_setting.cpu->nstrike * global_setting.cpu->ndip * global_setting.cpu->nrake;
@@ -69,7 +98,6 @@ int main(int argc, char *argv[])
     result_buffer.mcpu = 1;
     result_buffer.mgpu = 0;
     Result_xPU_sync(&result_buffer);
-    Int64 i;
     for (i = 0; i < nresult; i++)
     {
         result_buffer.waveform[i] = 10.0;

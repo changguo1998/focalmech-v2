@@ -199,7 +199,12 @@ __device__ void normalized_xcorr64_mt_gpu(Float64 *result, Int64 L, Int64 Ix, Fl
     b = 0.0;
     for (i = 0; i < L; i++)
     {
-        w = g11[Iy + i] * m11 + g22[Iy + i] * m22 + g33[Iy + i] * m33 + g12[Iy + i] * m12 + g13[Iy + i] * m13 + g23[Iy + i] * m23;
+        w = g11[Iy + i] * m11 +
+            g22[Iy + i] * m22 +
+            g33[Iy + i] * m33 +
+            g12[Iy + i] * m12 +
+            g13[Iy + i] * m13 +
+            g23[Iy + i] * m23;
         a += w * w;
         b += obs[Ix + i] * obs[Ix + i];
         *result += w * obs[Ix + i];
@@ -215,7 +220,7 @@ __device__ void maximum_xcorr_mt_gpu(Float64 *maxcorr, Int64 *shift, Int64 L, In
     Int64 s;
     Float64 v;
     *maxcorr = -2.0;
-    for (s = -S; s <= S; s+=1)
+    for (s = -S; s <= S; s += 1)
     {
         normalized_xcorr64_mt_gpu(&v, L, Ix, obs, Iy - s, g11, g22, g33, g12, g13, g23, m11, m22, m33, m12, m13, m23);
         if (v > *maxcorr)

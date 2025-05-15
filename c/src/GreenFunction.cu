@@ -94,7 +94,7 @@ void GreenFunction_write(GreenFunction *gf, Record *rs, GlobalSetting *gs, FILE 
 }
 
 #define _GF_COPY_MAT(var) \
-    cudaMemcpy(gbuf.##var, gf_cpu->##var, npts *nfreq * sizeof(Float64), cudaMemcpyHostToDevice)
+    cudaMemcpy(gbuf.##var, gf_cpu->##var, npts * nfreq * sizeof(Float64), cudaMemcpyHostToDevice)
 
 void GreenFunction_copyto_gpu(GreenFunction *gf_cpu, GreenFunction *gf_gpu, Int64 npts, Int64 nfreq)
 {
@@ -190,6 +190,7 @@ void GreenFunction_xPU_read(GreenFunction_xPU *gflist, Record_xPU *rlist, Global
         cudaMalloc(&(gbuf.g12), ndat * sizeof(Float64));
         cudaMalloc(&(gbuf.g13), ndat * sizeof(Float64));
         cudaMalloc(&(gbuf.g23), ndat * sizeof(Float64));
+        cudaMemcpy(&(gflist->gpu[i]), &gbuf, sizeof(GreenFunction), cudaMemcpyHostToDevice);
     }
     gflist->mcpu = 1;
     gflist->mgpu = 0;
@@ -209,6 +210,7 @@ void GreenFunction_xPU_write(GreenFunction_xPU *gflist, Record_xPU *rlist, Globa
 void GreenFunction_xPU_sync(GreenFunction_xPU *gflist, Record_xPU *rlist, GlobalSetting_xPU *gs)
 {
     Int64 i, ir, npts, nfreq;
+    Record *rp = NULL;
 #ifdef DEBUG
     printf("(GreenFunction_xPU_sync) start\n");
 #endif
@@ -226,10 +228,12 @@ void GreenFunction_xPU_sync(GreenFunction_xPU *gflist, Record_xPU *rlist, Global
 #ifdef DEBUG
             printf("(GreenFunction_xPU_sync) gf[%lld]\n", i);
 #endif
-            for (ir = 0; ir < rlist->n_records; ir++)
-                if ((gflist->cpu)[i].rid == rlist->cpu[ir].id)
-                    break;
-            npts = rlist->cpu[ir].npts;
+            // for (ir = 0; ir < rlist->n_records; ir++)
+            //     if ((gflist->cpu)[i].rid == rlist->cpu[ir].id)
+            //         break;
+            // npts = rlist->cpu[ir].npts;
+            rp = Record_get_pointer(rlist->cpu, rlist->n_records, gflist->cpu[i].rid);
+            npts = rp->npts;
 #ifdef DEBUG
             printf("(GreenFunction_xPU_sync) found record id: %lld, npts: %lld\n", ir, npts);
 #endif
@@ -243,10 +247,12 @@ void GreenFunction_xPU_sync(GreenFunction_xPU *gflist, Record_xPU *rlist, Global
 #endif
         for (i = 0; i < gflist->n; i++)
         {
-            for (ir = 0; ir < rlist->n_records; ir++)
-                if (gflist->cpu[i].rid == rlist->cpu[ir].id)
-                    break;
-            npts = rlist->cpu[ir].npts;
+            // for (ir = 0; ir < rlist->n_records; ir++)
+            //     if (gflist->cpu[i].rid == rlist->cpu[ir].id)
+            //         break;
+            // npts = rlist->cpu[ir].npts;
+            rp = Record_get_pointer(rlist->cpu, rlist->n_records, gflist->cpu[i].rid);
+            npts = rp->npts;
             GreenFunction_copy_gpu_to_cpu(&gflist->cpu[i], &gflist->gpu[i], npts, nfreq);
         }
     }

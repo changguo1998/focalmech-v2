@@ -4,14 +4,14 @@ function gauss(x, μ, σ)
     return exp(-((x - μ) / σ)^2)
 end
 
-nr = 2
-ne = 2
+nr = 1
+ne = 1
 np = nr
 npts = 101
 dt = 0.01
-dstrike = 10.0
-ddip = 10.0
-drake = 10.0
+dstrike = 1.0
+ddip = 1.0
+drake = 1.0
 nstrike = round(Int, 360.0/dstrike)
 ndip = floor(Int, 90.0/ddip) + 1
 nrake = floor(Int, 180.0/drake) + 1
@@ -20,7 +20,7 @@ gs = FocalMechv2.GlobalSetting("abc", nr, ne, np, [0.1], [0.5], 0.0, 0.0, nstrik
 gs_c = FocalMechv2.GlobalSetting_C(gs)
 
 rs = map(1:nr) do i
-    data = randn(npts, 1).*0.01
+    data = randn(npts, 1).*0.001
     data[:] .+= gauss.((0:npts-1).*dt, 0.5, 0.1)
     # data = FocalMechv2.pp_records_in_different_frequency(w, gs.low_frequency, gs.high_frequency, dt)
     FocalMechv2.Record_C(i+100, data)
