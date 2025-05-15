@@ -215,7 +215,7 @@ __device__ void maximum_xcorr_mt_gpu(Float64 *maxcorr, Int64 *shift, Int64 L, In
     Int64 s;
     Float64 v;
     *maxcorr = -2.0;
-    for (s = -S; s <= S; s++)
+    for (s = -S; s <= S; s+=1)
     {
         normalized_xcorr64_mt_gpu(&v, L, Ix, obs, Iy - s, g11, g22, g33, g12, g13, g23, m11, m22, m33, m12, m13, m23);
         if (v > *maxcorr)

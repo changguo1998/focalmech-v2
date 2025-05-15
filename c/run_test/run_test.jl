@@ -3,6 +3,9 @@ exefile = ARGS[1]
 
 @info "test program: $exefile"
 
+@info "update exe files"
+run(`julia copy_exe_here.jl`)
+
 efname = let
     t = filter(endswith("exe"), readdir(@__DIR__))
     s = filter(startswith(exefile), t)
@@ -14,8 +17,10 @@ efname = let
     _x
 end
 
-@info "update exe files"
-run(`julia copy_exe_here.jl`)
+if isnothing(efname)
+    @error "no file found"
+    exit(0)
+end
 
 @info "run program: $efname"
 run(Cmd(Cmd([efname]); dir=pwd()))

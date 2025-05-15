@@ -15,6 +15,7 @@ void Record_init(Record *r);
 void Record_free(Record *r);
 void Record_read(Record *r, Int64 nfreq, FILE *fp);
 void Record_write(Record *r, Int64 nfreq, FILE *fp);
+Record *Record_get_pointer(Record *rs, Int64 n_record, Int64 record_id);
 
 typedef struct _Record_xPU_t
 {

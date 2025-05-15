@@ -49,6 +49,21 @@ void Record_write(Record *r, Int64 nfreq, FILE *fp)
     fwrite(r->data, sizeof(Float64), ndat, fp);
 }
 
+Record *Record_get_pointer(Record *rs, Int64 n_record, Int64 record_id)
+{
+    Int64 i;
+    Record *rp = NULL;
+    for (i = 0; i < n_record; i++)
+    {
+        if (rs[i].id == record_id)
+        {
+            rp = &(rs[i]);
+            break;
+        }
+    }
+    return rp;
+}
+
 void Record_xPU_alloc(Record_xPU *rs, Int64 n)
 {
     rs->mcpu = 0;

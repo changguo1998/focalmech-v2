@@ -3,7 +3,7 @@
 #include <cuda.h>
 #include "GreenFunction.h"
 
-#define DEBUG
+// #define DEBUG
 
 static inline Int64 _max_(Int64 a, Int64 b) { return (a > b) ? a : b; }
 
@@ -57,21 +57,14 @@ void GreenFunction_read(GreenFunction *gf, Record *rs, GlobalSetting *gs, FILE *
     printf("(GreenFunction_read) eid: %lld\n", gf->eid);
 #endif
     Int64 i, npts;
-    UInt8 flag = 1;
-    for (i = 0; i < gs->n_record; i++)
-    {
-        if (rs[i].id == gf->rid)
-        {
-            flag = 0;
-            npts = rs[i].npts;
-            break;
-        }
-    }
-    if (flag)
+    Record *rp;
+    rp = Record_get_pointer(rs, gs->n_record, gf->rid);
+    if (rp == NULL)
     {
         printf("(GreenFunction_read) record id %lld not found\n", gf->rid);
         exit(-1);
     }
+    npts = rp->npts;
     Int64 ndat = npts * gs->n_frequency_pair;
     GF_READ_MAT(gf->g11);
     GF_READ_MAT(gf->g22);
@@ -86,14 +79,9 @@ void GreenFunction_read(GreenFunction *gf, Record *rs, GlobalSetting *gs, FILE *
 void GreenFunction_write(GreenFunction *gf, Record *rs, GlobalSetting *gs, FILE *fp)
 {
     Int64 i, npts;
-    for (i = 0; i < gs->n_record; i++)
-    {
-        if (rs[i].id == gf->rid)
-        {
-            npts = rs[i].npts;
-            break;
-        }
-    }
+    Record *rp;
+    rp = Record_get_pointer(rs, gs->n_record, gf->rid);
+    npts = rp->npts;
     Int64 ndat = npts * gs->n_frequency_pair;
     fwrite(&gf->rid, sizeof(Int64), 1, fp);
     fwrite(&gf->eid, sizeof(Int64), 1, fp);
@@ -114,7 +102,6 @@ void GreenFunction_copyto_gpu(GreenFunction *gf_cpu, GreenFunction *gf_gpu, Int6
     cudaMemcpy(&gbuf, gf_gpu, sizeof(GreenFunction), cudaMemcpyDeviceToHost);
     gbuf.rid = gf_cpu->rid;
     gbuf.eid = gf_cpu->eid;
-
     _GF_COPY_MAT(g11);
     _GF_COPY_MAT(g22);
     _GF_COPY_MAT(g33);
@@ -170,7 +157,8 @@ void GreenFunction_xPU_alloc(GreenFunction_xPU *gflist, Int64 n)
         return;
     }
     gflist->cpu = (GreenFunction *)malloc(n * sizeof(GreenFunction));
-    gflist->gpu = NULL;
+    cudaMalloc(&(gflist->gpu), n * sizeof(GreenFunction));
+    // gflist->gpu = NULL;
     gflist->n = n;
 }
 
@@ -183,13 +171,25 @@ void GreenFunction_xPU_free(GreenFunction_xPU *gflist)
 
 void GreenFunction_xPU_read(GreenFunction_xPU *gflist, Record_xPU *rlist, GlobalSetting_xPU *gs, FILE *fp)
 {
-    Int64 i;
+    Int64 i, ndat;
+    Record *rp;
+    GreenFunction gbuf;
     for (i = 0; i < gflist->n; i++)
     {
 #ifdef DEBUG
         printf("(GreenFunction_xPU_read) Reading function %lld\n", i);
 #endif
         GreenFunction_read(&(gflist->cpu[i]), rlist->cpu, gs->cpu, fp);
+        rp = Record_get_pointer(rlist->cpu, gs->cpu->n_record, gflist->cpu[i].rid);
+        ndat = rp->npts * gs->cpu->n_frequency_pair;
+        gbuf.rid = gflist->cpu[i].rid;
+        gbuf.eid = gflist->cpu[i].eid;
+        cudaMalloc(&(gbuf.g11), ndat * sizeof(Float64));
+        cudaMalloc(&(gbuf.g22), ndat * sizeof(Float64));
+        cudaMalloc(&(gbuf.g33), ndat * sizeof(Float64));
+        cudaMalloc(&(gbuf.g12), ndat * sizeof(Float64));
+        cudaMalloc(&(gbuf.g13), ndat * sizeof(Float64));
+        cudaMalloc(&(gbuf.g23), ndat * sizeof(Float64));
     }
     gflist->mcpu = 1;
     gflist->mgpu = 0;

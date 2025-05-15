@@ -67,7 +67,7 @@ void GlobalSetting_write(GlobalSetting *s, FILE *fp)
 void GlobalSetting_xPU_alloc(GlobalSetting_xPU *gs)
 {
     gs->cpu = (GlobalSetting *)malloc(sizeof(GlobalSetting));
-    cudaMalloc(&(gs->gpu), sizeof(Float64));
+    cudaMalloc(&(gs->gpu), sizeof(GlobalSetting));
     gs->mcpu = 0;
     gs->mgpu = 0;
 }
@@ -91,8 +91,8 @@ void GlobalSetting_xPU_free(GlobalSetting_xPU *gs)
 void GlobalSetting_xPU_read(GlobalSetting_xPU *gs, FILE *fp)
 {
     GlobalSetting_read(gs->cpu, fp);
+    gs->mcpu = 1;
     gs->mgpu = 0;
-    gs->mcpu = gs->mgpu + 1;
     GlobalSetting_xPU_sync(gs);
 }
 

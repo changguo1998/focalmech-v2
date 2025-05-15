@@ -196,29 +196,32 @@ function write_to_database(io::IO, ps::Phase_C)
 end
 
 struct Result_C
+    n_freq::Int64
     n_phase::Int64
     n_fm::Int64
-    waveform::Matrix{Float64}
-    shift::Matrix{Int64}
-    polarity::Matrix{Float64}
-    ps_ratio::Matrix{Float32}
+    waveform::Array{Float64, 3}
+    shift::Array{Int64, 3}
+    polarity::Array{Float64, 3}
+    ps_ratio::Array{Float64, 3}
 end
 
 function Result_C(io::IO)
+    nfreq = read(io, Int64)
     np = read(io, Int64)
-    nf = read(io, Int64)
-    waveform = zeros(Float64, np, nf)
+    nfm = read(io, Int64)
+    waveform = zeros(Float64, nfreq, np, nfm)
     read!(io, waveform)
-    shift = zeros(Int64, np, nf)
+    shift = zeros(Int64, nfreq, np, nfm)
     read!(io, shift)
-    polarity = zeros(Float64, np, nf)
+    polarity = zeros(Float64, nfreq, np, nfm)
     read!(io, polarity)
-    ps_ratio = zeros(Float64, np, nf)
+    ps_ratio = zeros(Float64, nfreq, np, nfm)
     read!(io, ps_ratio)
-    return Result_C(np, nf, waveform, shift, polarity, ps_ratio)
+    return Result_C(nfreq, np, nfm, waveform, shift, polarity, ps_ratio)
 end
 
 function write_to_database(io::IO, r::Result_C)
+    write(io, r.n_freq)
     write(io, r.n_phase)
     write(io, r.n_fm)
     write(io, r.waveform)

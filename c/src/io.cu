@@ -7,7 +7,7 @@
 #include "Phase.h"
 #include "io.h"
 
-#define DEBUG
+// #define DEBUG
 
 void load_database(GlobalSetting_xPU *gs, Record_xPU *rlist, GreenFunction_xPU *gflist, Phase_xPU *plist, FILE *fp)
 {
